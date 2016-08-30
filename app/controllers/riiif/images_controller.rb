@@ -8,8 +8,10 @@ module Riiif
 
     def show
       begin
+        permitted_params = params.permit(:region, :size, :rotation, :quality, :format)
+
         image = model.new(image_id)
-        status = if authorization_service.can?(:show, image)
+        status = if authorization_service.can?(:show, image: image, params: permitted_params, ability: current_ability)
                    :ok
                  else
                    :unauthorized
@@ -20,7 +22,7 @@ module Riiif
 
       image = not_found_image unless status == :ok
 
-      data = image.render(params.permit(:region, :size, :rotation, :quality, :format))
+      data = image.render(permitted_params)
       headers['Access-Control-Allow-Origin'] = '*'
       send_data data,
                 status: status,
