@@ -6,17 +6,6 @@ module Riiif
     self.file_resolver = FileSystemFileResolver.new
     self.authorization_service = NilAuthorizationService
 
-    # this is the default info service
-    # returns a hash with the original image dimensions.
-    # You can set your own lambda if you want different behavior
-    # example:
-    #   {:height=>390, :width=>600}
-    self.info_service = lambda do |id, image|
-      Rails.cache.fetch(cache_key(id, { info: true }), compress: true, expires_in: expires_in) do
-        image.info
-      end
-    end
-
     OUTPUT_FORMATS = %w(jpg png).freeze
 
     attr_reader :id
@@ -37,10 +26,6 @@ module Riiif
       Rails.cache.fetch(Image.cache_key(id, options), compress: true, expires_in: Image.expires_in) do
         image.extract(options)
       end
-    end
-
-    def info
-      info_service.call(id, image)
     end
 
     class << self
@@ -94,14 +79,14 @@ module Riiif
           nil
         elsif md = /^pct:(\d+),(\d+),(\d+),(\d+)$/.match(region)
           # Image magic can't do percentage offsets, so we have to calculate it
-          offset_x = (info[:width] * Integer(md[1]).to_f / 100).round
-          offset_y = (info[:height] * Integer(md[2]).to_f / 100).round
+          offset_x = (image.info[:width] * Integer(md[1]).to_f / 100).round
+          offset_y = (image.info[:height] * Integer(md[2]).to_f / 100).round
           "#{md[3]}%x#{md[4]}+#{offset_x}+#{offset_y}"
         elsif md = /^(\d+),(\d+),(\d+),(\d+)$/.match(region)
           "#{md[3]}x#{md[4]}+#{md[1]}+#{md[2]}"
         elsif region == 'square'
-          w = info[:width]
-          h = info[:height]
+          w = image.info[:width]
+          h = image.info[:height]
           min, max = [w, h].minmax
 
           offset = (max - min) / 2
